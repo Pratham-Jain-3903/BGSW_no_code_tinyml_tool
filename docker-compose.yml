@@ -1,0 +1,60 @@
+services:
+  pgvector:
+    image: pgvector/pgvector:pg16
+    container_name: pgvector-db
+    shm_size: 128mb
+    restart: unless-stopped
+    ports:
+      - "6024:5432"
+    environment:
+      POSTGRES_USER: langchain
+      POSTGRES_PASSWORD: langchain
+      POSTGRES_DB: langchain
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./init.sql:/docker-entrypoint-initdb.d/init.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U langchain"]
+      interval: 5s
+      
+      timeout: 5s
+      retries: 5
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  app:
+    container_name: chatbot-app
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "5000:5000"
+    environment:
+      PG_HOST: pgvector
+      PG_PORT: 5432
+      PG_USER: langchain
+      PG_PASSWORD: langchain
+      PG_DATABASE: langchain
+      X_API_KEY: "4a1f2a537fe44d78a5c90b2a0b22d8a4ccaa1f3f6db820b850889f4de96e6ac8"
+      INSTANCE_NAME: "app"
+      PYTHONUNBUFFERED: "1"
+      LOG_LEVEL: "DEBUG"
+      PORT: "5000"
+    volumes:
+      - ./logs:/home/user/app/logs:rw
+    depends_on:
+      pgvector:
+        condition: service_healthy
+    restart: unless-stopped
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+volumes:
+  pgdata:
+    name: pgvector-data

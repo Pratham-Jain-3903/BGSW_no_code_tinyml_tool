@@ -1,0 +1,330 @@
+{
+  "provider": "autogen_agentchat.teams.SelectorGroupChat",
+  "component_type": "team",
+  "version": 1,
+  "component_version": 1,
+  "description": "A team with  agents, each with tools that can help you achieve the business use case given by userproxy agent, feel free to ask userproxy agent to help give you configs when in doubt about the use case but you are to help him automate the task of training ml models from data using these agents \n\nlook at output and instruct  various agents to use their tools to move forward in the pipeline\n\n ",
+  "label": "Cloud2stm_agentic_team",
+  "config": {
+    "participants": [
+      {
+        "provider": "autogen_agentchat.agents.AssistantAgent",
+        "component_type": "agent",
+        "version": 1,
+        "component_version": 1,
+        "description": "An agent that provides assistance with data ingestion, eda and schema migration.",
+        "label": "data_ingestion_assistant_agent",
+        "config": {
+          "name": "data_ingestion_assistant_agent",
+          "model_client": {
+            "provider": "autogen_ext.models.openai.OpenAIChatCompletionClient",
+            "component_type": "model",
+            "version": 1,
+            "component_version": 1,
+            "description": "Chat completion client for OpenAI hosted models.",
+            "label": "OpenAIChatCompletionClient",
+            "config": {
+              "model": "gpt-4o-mini",
+              "api_key": "<please-enter-an-openai-key-here>"
+            }
+          },
+          "tools": [
+            {
+              "provider": "autogen_core.tools.FunctionTool",
+              "component_type": "tool",
+              "version": 1,
+              "component_version": 1,
+              "description": "Create custom tools by wrapping standard Python functions.",
+              "label": "FunctionTool",
+              "config": {
+                "source_code": "def calculator(a: float, b: float, operator: str) -> str:\n    try:\n        if operator == \"+\":\n            return str(a + b)\n        elif operator == \"-\":\n            return str(a - b)\n        elif operator == \"*\":\n            return str(a * b)\n        elif operator == \"/\":\n            if b == 0:\n                return \"Error: Division by zero\"\n            return str(a / b)\n        else:\n            return \"Error: Invalid operator. Please use +, -, *, or /\"\n    except Exception as e:\n        return f\"Error: {str(e)}\"\n",
+                "name": "calculator",
+                "description": "A simple calculator that performs basic arithmetic operations",
+                "global_imports": [],
+                "has_cancellation_support": true
+              }
+            },
+            {
+              "provider": "autogen_core.tools.FunctionTool",
+              "component_type": "tool",
+              "version": 1,
+              "component_version": 1,
+              "description": "Executes the ETL pipeline from ingest_data_linux.py with user-provided configuration overrides",
+              "label": "ETL Pipeline Tool",
+              "config": {
+                "source_code": "import sys\nimport os\nimport importlib.util\n\ndef execute_etl(user_config: dict = None) -> dict:\n    \"\"\"\n    Execute the ETL pipeline with optional user configurations.\n    \n    Args:\n        user_config (dict): User-provided configuration overrides\n        \n    Returns:\n        dict: Results from the ETL pipeline execution\n    \"\"\"\n    # Use WSL path format for Linux environment\n    file_path = \"/mnt/d/College/databricks_apis/databricks_api_endpoints/ingest_data_linux.py\"\n    \n    if not os.path.exists(file_path):\n        return {\"error\": f\"File not found at {file_path}\"}\n    \n    # Load the module using importlib\n    try:\n        module_name = \"ingest_data_linux\"\n        spec = importlib.util.spec_from_file_location(module_name, file_path)\n        module = importlib.util.module_from_spec(spec)\n        spec.loader.exec_module(module)\n        \n        # Access the run_etl_pipeline function and config dictionary\n        run_etl_pipeline = module.run_etl_pipeline\n        etl_config = module.config\n        \n        # Store original config to restore later\n        original_config = etl_config.copy()\n        \n        # Set default paths with correct Linux-style paths if not provided in user config\n        default_paths = {\n            \"raw_data_path\": \"/mnt/d/College/databricks_apis/raw_data/all_data/collected_csvs\",\n            \"output_table\": \"/mnt/d/College/databricks_apis/autogenstudio/results/ingestion_table\"\n        }\n        \n        # First update with default Linux paths\n        for key, value in default_paths.items():\n            etl_config[key] = value\n            \n        try:\n            # Then update with user values if provided\n            if user_config:\n                for key, value in user_config.items():\n                    if key in etl_config:\n                        etl_config[key] = value\n                    else:\n                        print(f\"Warning: Unknown config key '{key}', adding anyway\")\n                        etl_config[key] = value\n            \n            # Run the ETL pipeline\n            result = run_etl_pipeline()\n            return result\n        \n        finally:\n            # Restore the original config to avoid side effects\n            for key, value in original_config.items():\n                etl_config[key] = value\n    \n    except Exception as e:\n        import traceback\n        return {\n            \"error\": f\"Error executing ETL pipeline: {str(e)}\",\n            \"traceback\": traceback.format_exc(),\n            \"file_path_used\": file_path\n        }\n",
+                "name": "execute_etl",
+                "description": "Executes the ETL pipeline from ingest_data_linux.py with user-provided configuration overrides",
+                "global_imports": [
+                  "sys",
+                  "os",
+                  "importlib.util"
+                ],
+                "has_cancellation_support": false
+              }
+            }
+          ],
+          "model_context": {
+            "provider": "autogen_core.model_context.UnboundedChatCompletionContext",
+            "component_type": "chat_completion_context",
+            "version": 1,
+            "component_version": 1,
+            "description": "An unbounded chat completion context that keeps a view of the all the messages.",
+            "label": "UnboundedChatCompletionContext",
+            "config": {}
+          },
+          "description": "An agent that provides assistance with ability to use tools.",
+          "system_message": "You are a helpful assistant, An agent that provides assistance with data ingestion, eda and schema migration.\n\nyou have many tools such give them configs and use them in logical order on after the other to help user complete the following tasks \n1) find datatypes\n2) misssing values\n3) duplicate rows\n4) cardinality - (strings and int types only) - warns about constants\n5) common stats and plots (box plot, std deviation, median, outliers)\n6) save results as parquet/ delta lake format for incremental learning later\n\nSolve tasks carefully. When done, say NEXT so orchestrator can move on to the next agent.",
+          "model_client_stream": true,
+          "reflect_on_tool_use": true,
+          "tool_call_summary_format": "{result}"
+        }
+      },
+      {
+        "provider": "autogen_agentchat.agents.AssistantAgent",
+        "component_type": "agent",
+        "version": 1,
+        "component_version": 1,
+        "description": "An agent that provides assistance with tool use.",
+        "label": "critic_agent",
+        "config": {
+          "name": "critic_agent",
+          "model_client": {
+            "provider": "autogen_ext.models.openai.OpenAIChatCompletionClient",
+            "component_type": "model",
+            "version": 1,
+            "component_version": 1,
+            "description": "Chat completion client for OpenAI hosted models.",
+            "label": "OpenAIChatCompletionClient",
+            "config": {
+              "model": "gpt-4o-mini",
+              "api_key": "<please-enter-an-openai-key-here>"
+            }
+          },
+          "tools": [],
+          "model_context": {
+            "provider": "autogen_core.model_context.UnboundedChatCompletionContext",
+            "component_type": "chat_completion_context",
+            "version": 1,
+            "component_version": 1,
+            "description": "An unbounded chat completion context that keeps a view of the all the messages.",
+            "label": "UnboundedChatCompletionContext",
+            "config": {}
+          },
+          "description": "an agent that critiques and improves the assistant's output",
+          "system_message": "You are a helpful assistant. Critique the assistant's output and suggest improvements based on use case",
+          "model_client_stream": false,
+          "reflect_on_tool_use": false,
+          "tool_call_summary_format": "{result}"
+        }
+      },
+      {
+        "provider": "autogen_agentchat.agents.UserProxyAgent",
+        "component_type": "agent",
+        "version": 1,
+        "component_version": 1,
+        "description": "An agent that can represent a human user through an input function.",
+        "label": "UserProxyAgent",
+        "config": {
+          "name": "user_proxy",
+          "description": "a human user that should be consulted only when the assistant_agent is unable to verify the information provided by the websurfer_agent"
+        }
+      },
+      {
+        "provider": "autogen_agentchat.agents.AssistantAgent",
+        "component_type": "agent",
+        "version": 1,
+        "component_version": 1,
+        "description": "An agent that provides assistance with ability to use tools for imputation, scaling and feature engineering",
+        "label": "feature_engineering_assistant_agent",
+        "config": {
+          "name": "feature_engineering_assistant_agent",
+          "model_client": {
+            "provider": "autogen_ext.models.openai.OpenAIChatCompletionClient",
+            "component_type": "model",
+            "version": 1,
+            "component_version": 1,
+            "description": "Chat completion client for OpenAI hosted models.",
+            "label": "OpenAIChatCompletionClient",
+            "config": {
+              "model": "gpt-4o-mini",
+              "api_key": "<please-enter-an-openai-key-here>"
+            }
+          },
+          "tools": [
+            {
+              "provider": "autogen_core.tools.FunctionTool",
+              "component_type": "tool",
+              "version": 1,
+              "component_version": 1,
+              "description": "Create custom tools by wrapping standard Python functions.",
+              "label": "FunctionTool",
+              "config": {
+                "source_code": "def calculator(a: float, b: float, operator: str) -> str:\n    try:\n        if operator == \"+\":\n            return str(a + b)\n        elif operator == \"-\":\n            return str(a - b)\n        elif operator == \"*\":\n            return str(a * b)\n        elif operator == \"/\":\n            if b == 0:\n                return \"Error: Division by zero\"\n            return str(a / b)\n        else:\n            return \"Error: Invalid operator. Please use +, -, *, or /\"\n    except Exception as e:\n        return f\"Error: {str(e)}\"\n",
+                "name": "calculator",
+                "description": "A simple calculator that performs basic arithmetic operations",
+                "global_imports": [],
+                "has_cancellation_support": true
+              }
+            },
+            {
+              "provider": "autogen_core.tools.FunctionTool",
+              "component_type": "tool",
+              "version": 1,
+              "component_version": 1,
+              "description": "Executes the feature engineering pipeline from feature_engineering_linux.py with user-provided configuration overrides",
+              "label": "Feature Engineering Pipeline Tool",
+              "config": {
+                "source_code": "import sys\nimport os\nimport importlib.util\n\ndef execute_feature_engineering(user_config: dict = None) -> dict:\n    \"\"\"\n    Execute the feature engineering pipeline with optional user configurations.\n    \n    Args:\n        user_config (dict): User-provided configuration overrides\n        \n    Returns:\n        dict: Results from the feature engineering pipeline execution\n    \"\"\"\n    # Use WSL path format for Linux environment\n    file_path = \"/mnt/d/College/databricks_apis/databricks_api_endpoints/feature_engineering_linux.py\"\n    \n    if not os.path.exists(file_path):\n        return {\"error\": f\"File not found at {file_path}\"}\n    \n    # Load the module using importlib\n    try:\n        module_name = \"feature_engineering_linux\"\n        spec = importlib.util.spec_from_file_location(module_name, file_path)\n        module = importlib.util.module_from_spec(spec)\n        spec.loader.exec_module(module)\n        \n        # Access the run_feature_engineering_pipeline function and config dictionary\n        run_feature_engineering_pipeline = module.run_feature_engineering_pipeline\n        feature_config = module.config\n        \n        # Store original config to restore later\n        original_config = feature_config.copy()\n        \n        # Set default paths with correct Linux-style paths\n        default_paths = {\n            \"input_path\": \"/mnt/d/College/databricks_apis/autogenstudio/results/ingestion_table_parquet_pandas\",\n            \"data_quality_report_path\": \"/mnt/d/College/databricks_apis/autogenstudio/results/ingestion_table_data_quality_report.json\",\n            \"output_path\": \"/mnt/d/College/databricks_apis/autogenstudio/results/feature_engineered_data\"\n        }\n        \n        # First update with default Linux paths\n        for key, value in default_paths.items():\n            feature_config[key] = value\n            \n        try:\n            # Then update with user values if provided\n            if user_config:\n                for key, value in user_config.items():\n                    if key in feature_config:\n                        feature_config[key] = value\n                    else:\n                        print(f\"Warning: Unknown config key '{key}', adding anyway\")\n                        feature_config[key] = value\n            \n            # Run the feature engineering pipeline\n            result = run_feature_engineering_pipeline()\n            return result\n        \n        finally:\n            # Restore the original config to avoid side effects\n            for key, value in original_config.items():\n                feature_config[key] = value\n    \n    except Exception as e:\n        import traceback\n        return {\n            \"error\": f\"Error executing feature engineering pipeline: {str(e)}\",\n            \"traceback\": traceback.format_exc(),\n            \"file_path_used\": file_path\n        }\n",
+                "name": "execute_feature_engineering",
+                "description": "Executes the feature engineering pipeline from feature_engineering_linux.py with user-provided configuration overrides",
+                "global_imports": [
+                  "sys",
+                  "os",
+                  "importlib.util"
+                ],
+                "has_cancellation_support": true
+              }
+            }
+          ],
+          "model_context": {
+            "provider": "autogen_core.model_context.UnboundedChatCompletionContext",
+            "component_type": "chat_completion_context",
+            "version": 1,
+            "component_version": 1,
+            "description": "An unbounded chat completion context that keeps a view of the all the messages.",
+            "label": "UnboundedChatCompletionContext",
+            "config": {}
+          },
+          "description": "An agent that provides assistance with ability to use tools.",
+          "system_message": "You are a helpful assistant, An agent that provides assistance with imputation, scaling and feature engineering.\n\nyou have many tools such give them configs and use them in logical order on after the other to help user complete the following tasks \n\n1) one hot encode strings and int categorical ones\n2) impute missing values by mean, zeros or ffill\n3) scale by minmax or std scaler\n4) run mutual correlation between the target and features\n5) run recursive features extraction (optional not for big data)\n6) lasso \n7)Incremental PCA (optional but worth it for streaming data applications)\n8) Kendall, spearman, pearson\n6) save results as parquet/ delta lake format for incremental learning later\n\nSolve tasks carefully. When done, say NEXT so orchestrator can move on to the next agent.",
+          "model_client_stream": true,
+          "reflect_on_tool_use": true,
+          "tool_call_summary_format": "{result}"
+        }
+      },
+      {
+        "provider": "autogen_agentchat.agents.AssistantAgent",
+        "component_type": "agent",
+        "version": 1,
+        "component_version": 1,
+        "description": "An agent that provides assistance with ability to use tools to run ml_pipeline.",
+        "label": "ml_training_assistant_agent",
+        "config": {
+          "name": "ml_training_assistant_agent",
+          "model_client": {
+            "provider": "autogen_ext.models.openai.OpenAIChatCompletionClient",
+            "component_type": "model",
+            "version": 1,
+            "component_version": 1,
+            "description": "Chat completion client for OpenAI hosted models.",
+            "label": "OpenAIChatCompletionClient",
+            "config": {
+              "model": "gpt-4o-mini",
+              "api_key": "<please-enter-an-openai-key-here>"
+            }
+          },
+          "tools": [
+            {
+              "provider": "autogen_core.tools.FunctionTool",
+              "component_type": "tool",
+              "version": 1,
+              "component_version": 1,
+              "description": "Create custom tools by wrapping standard Python functions.",
+              "label": "FunctionTool",
+              "config": {
+                "source_code": "def calculator(a: float, b: float, operator: str) -> str:\n    try:\n        if operator == \"+\":\n            return str(a + b)\n        elif operator == \"-\":\n            return str(a - b)\n        elif operator == \"*\":\n            return str(a * b)\n        elif operator == \"/\":\n            if b == 0:\n                return \"Error: Division by zero\"\n            return str(a / b)\n        else:\n            return \"Error: Invalid operator. Please use +, -, *, or /\"\n    except Exception as e:\n        return f\"Error: {str(e)}\"\n",
+                "name": "calculator",
+                "description": "A simple calculator that performs basic arithmetic operations",
+                "global_imports": [],
+                "has_cancellation_support": true
+              }
+            },
+            {
+              "provider": "autogen_core.tools.FunctionTool",
+              "component_type": "tool",
+              "version": 1,
+              "component_version": 1,
+              "description": "Executes the ML training and benchmarking pipeline from ml_training_benchmarking.py with user-provided configuration overrides",
+              "label": "ML Training Pipeline Tool",
+              "config": {
+                "source_code": "import sys\nimport os\nimport importlib.util\n\ndef execute_ml_training(user_config: dict = None) -> dict:\n    \"\"\"\n    Execute the ML training and benchmarking pipeline with optional user configurations.\n    \n    Args:\n        user_config (dict): User-provided configuration overrides\n        \n    Returns:\n        dict: Results from the ML training pipeline execution\n    \"\"\"\n    # Use WSL path format for Linux environment\n    file_path = \"/mnt/d/College/databricks_apis/databricks_api_endpoints/ml_training_benchmarking.py\"\n    \n    if not os.path.exists(file_path):\n        return {\"error\": f\"File not found at {file_path}\"}\n    \n    # Load the module using importlib\n    try:\n        module_name = \"ml_training_benchmarking\"\n        spec = importlib.util.spec_from_file_location(module_name, file_path)\n        module = importlib.util.module_from_spec(spec)\n        spec.loader.exec_module(module)\n        \n        # Access the main function and ml_config dictionary\n        main_function = module.main\n        ml_config = module.ml_config\n        \n        # Store original config to restore later\n        original_config = {k: (v.copy() if isinstance(v, dict) else v) for k, v in ml_config.items()}\n        # For nested dicts like 'time_series', ensure its sub-keys are also copied\n        if 'time_series' in original_config and isinstance(original_config['time_series'], dict):\n            original_config['time_series'] = original_config['time_series'].copy()\n        \n        # Set default paths with correct Linux-style paths\n        default_paths = {\n            \"output_dir\": \"/mnt/d/College/databricks_apis/autogenstudio/results/ml_models\",\n        }\n        \n        # First update with default Linux paths\n        for key, value in default_paths.items():\n            ml_config[key] = value\n            \n        try:\n            # Then update with user values if provided\n            if user_config:\n                for key, value in user_config.items():\n                    if key in ml_config:\n                        if isinstance(ml_config[key], dict) and isinstance(value, dict):\n                            # Update nested dictionaries (e.g., time_series)\n                            for sub_key, sub_value in value.items():\n                                if sub_key in ml_config[key]:\n                                    ml_config[key][sub_key] = sub_value\n                                else:\n                                    print(f\"Warning: Unknown config sub-key '{sub_key}' in '{key}', adding anyway\")\n                                    ml_config[key][sub_key] = sub_value\n                        else:\n                            ml_config[key] = value\n                    else:\n                        print(f\"Warning: Unknown config key '{key}', adding anyway\")\n                        ml_config[key] = value\n            \n            # Run the ML training pipeline\n            result = main_function()\n            return result\n        \n        finally:\n            # Restore the original config to avoid side effects\n            for key, value in original_config.items():\n                ml_config[key] = value\n    \n    except Exception as e:\n        import traceback\n        return {\n            \"error\": f\"Error executing ML training pipeline: {str(e)}\",\n            \"traceback\": traceback.format_exc(),\n            \"file_path_used\": file_path\n        }\n",
+                "name": "execute_ml_training",
+                "description": "Executes the ML training and benchmarking pipeline from ml_training_benchmarking.py with user-provided configuration overrides",
+                "global_imports": [
+                  "sys",
+                  "os",
+                  "importlib.util"
+                ],
+                "has_cancellation_support": true
+              }
+            }
+          ],
+          "model_context": {
+            "provider": "autogen_core.model_context.UnboundedChatCompletionContext",
+            "component_type": "chat_completion_context",
+            "version": 1,
+            "component_version": 1,
+            "description": "An unbounded chat completion context that keeps a view of the all the messages.",
+            "label": "UnboundedChatCompletionContext",
+            "config": {}
+          },
+          "description": "An agent that provides assistance with ability to use tools.",
+          "system_message": "You are a helpful assistant, An agent that provides assistance with imputation, scaling and feature engineering.\n\nyou have many tools such give them configs and use them in logical order on after the other to help user complete the following tasks \n\n1) configure pycaret\n2) save results\n3) save pipelines as .pkl files\n4) deserialize and store .pkl file as onnx format \n\nSolve tasks carefully. When done, say NEXT so orchestrator can move on to the next agent.\n",
+          "model_client_stream": true,
+          "reflect_on_tool_use": true,
+          "tool_call_summary_format": "{result}"
+        }
+      }
+    ],
+    "model_client": {
+      "provider": "autogen_ext.models.openai.OpenAIChatCompletionClient",
+      "component_type": "model",
+      "version": 1,
+      "component_version": 1,
+      "description": "Chat completion client for OpenAI hosted models.",
+      "label": "OpenAIChatCompletionClient",
+      "config": {
+        "model": "gpt-4o-mini",
+        "api_key": "<please-enter-an-openai-key-here>"
+      }
+    },
+    "termination_condition": {
+      "provider": "autogen_agentchat.base.OrTerminationCondition",
+      "component_type": "termination",
+      "version": 1,
+      "component_version": 1,
+      "label": "OrTerminationCondition",
+      "config": {
+        "conditions": [
+          {
+            "provider": "autogen_agentchat.conditions.TextMentionTermination",
+            "component_type": "termination",
+            "version": 1,
+            "component_version": 1,
+            "description": "Terminate the conversation if a specific text is mentioned.",
+            "label": "TextMentionTermination",
+            "config": {
+              "text": "TERMINATE"
+            }
+          },
+          {
+            "provider": "autogen_agentchat.conditions.MaxMessageTermination",
+            "component_type": "termination",
+            "version": 1,
+            "component_version": 1,
+            "description": "Terminate the conversation after a maximum number of messages have been exchanged.",
+            "label": "MaxMessageTermination",
+            "config": {
+              "max_messages": 10,
+              "include_agent_event": false
+            }
+          }
+        ]
+      }
+    },
+    "selector_prompt": "You are in a ml pipeline which has agentic support to help user give configs. The following roles are available:\n{roles}.\nRead the following conversation. Then select the next role from {participants} to play. Only return the role.\n\n{history}\n\nRead the above conversation. Then select the next role from {participants} to play. Only return the role.\n\nknow that each agent has tools that can help you achieve the business use case given by userproxy agent, feel free to ask userproxy agent to help give you configs when in doubt about the use case but you are to help him automate the task of training ml models from data using these agents \n\nlook at output and instruct  various agents to use their tools to move forward in the pipeline using configs from use or their own typically data_ingestion happens first followed by data selection followed by ml_training and benchmarking \n\nsay TERMINATE to end session",
+    "allow_repeated_speaker": false,
+    "max_selector_attempts": 3
+  }
+}

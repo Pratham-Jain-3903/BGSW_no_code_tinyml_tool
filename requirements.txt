@@ -1,0 +1,13 @@
+pycaret[full]
+pyspark
+pandas
+numpy
+scikit-learn
+fastapi
+uvicorn
+gunicorn
+pydantic
+python-multipart
+python-dotenv
+fastapi-utils
+fastapi-sqlalchemy

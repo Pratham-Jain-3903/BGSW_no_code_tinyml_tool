@@ -1,0 +1,330 @@
+{
+  "provider": "autogen_agentchat.teams.SelectorGroupChat",
+  "component_type": "team",
+  "version": 1,
+  "component_version": 1,
+  "description": "A team with  agents, each with tools that can help you achieve the business use case given by userproxy agent, feel free to ask userproxy agent to help give you configs when in doubt about the use case but you are to help him automate the task of training ml models from data using these agents \n\nlook at output and instruct  various agents to use their tools to move forward in the pipeline\n\n ",
+  "label": "Cloud2stm_agentic_team",
+  "config": {
+    "participants": [
+      {
+        "provider": "autogen_agentchat.agents.AssistantAgent",
+        "component_type": "agent",
+        "version": 1,
+        "component_version": 1,
+        "description": "An agent that provides assistance with data ingestion, eda and schema migration.",
+        "label": "data_ingestion_assistant_agent",
+        "config": {
+          "name": "data_ingestion_assistant_agent",
+          "model_client": {
+            "provider": "autogen_ext.models.openai.OpenAIChatCompletionClient",
+            "component_type": "model",
+            "version": 1,
+            "component_version": 1,
+            "description": "Chat completion client for OpenAI hosted models.",
+            "label": "OpenAIChatCompletionClient",
+            "config": {
+              "model": "gpt-4o-mini",
+              "api_key": "<please-enter-an-openai-key-here>"
+            }
+          },
+          "tools": [
+            {
+              "provider": "autogen_core.tools.FunctionTool",
+              "component_type": "tool",
+              "version": 1,
+              "component_version": 1,
+              "description": "Create custom tools by wrapping standard Python functions.",
+              "label": "FunctionTool",
+              "config": {
+                "source_code": "def calculator(a: float, b: float, operator: str) -> str:\n    try:\n        if operator == \"+\":\n            return str(a + b)\n        elif operator == \"-\":\n            return str(a - b)\n        elif operator == \"*\":\n            return str(a * b)\n        elif operator == \"/\":\n            if b == 0:\n                return \"Error: Division by zero\"\n            return str(a / b)\n        else:\n            return \"Error: Invalid operator. Please use +, -, *, or /\"\n    except Exception as e:\n        return f\"Error: {str(e)}\"\n",
+                "name": "calculator",
+                "description": "A simple calculator that performs basic arithmetic operations",
+                "global_imports": [],
+                "has_cancellation_support": true
+              }
+            },
+            {
+              "provider": "autogen_core.tools.FunctionTool",
+              "component_type": "tool",
+              "version": 1,
+              "component_version": 1,
+              "description": "Executes the ETL pipeline from ingest_data_linux.py with user-provided configuration overrides",
+              "label": "ETL Pipeline Tool",
+              "config": {
+                "source_code": "import sys\nimport os\nimport importlib.util\n\ndef execute_etl(user_config: dict = None) -> dict:\n    \"\"\"\n    Execute the ETL pipeline with optional user configurations.\n    \n    Args:\n        user_config (dict): User-provided configuration overrides\n        \n    Returns:\n        dict: Results from the ETL pipeline execution\n    \"\"\"\n    # default_config = \n    # {\n    # \"raw_data_path\": \"raw_data/all_data/collected_csvs\",  # Linux path format\n    # \"output_table\": \"results/ingestion_table\",  # Linux path format\n    # \"window_size\": 2,\n    # \"filter_columns\": [],  # Empty list means keep all columns\n    # \"drop_columns_by_type\": [],  # E.g., [\"string\", \"int\"]\n    # \"constant_columns_action\": \"drop\",  # Options: \"keep\", \"drop\"\n    # \"high_cardinality_threshold\": 1000,  # Threshold for high cardinality\n    # \"high_cardinality_action\": \"keep\",  # Options: \"keep\", \"drop\"\n    # \"missing_values_threshold\": 0.95,  # Drop columns with more than 90% missing values\n    # \"duplicate_rows_action\": \"keep\",  # Options: \"keep\", \"drop\"\n    # \"batch_size\": 10  # Number of columns to process at once during data quality analysis\n    # }\n\n    # Define the exact file path to the module\n    file_path = r\"D:\\College\\databricks_apis\\databricks_api_endpoints\\ingest_data_linux.py\"\n    \n    # Check if file exists\n    if not os.path.exists(file_path):\n        return {\"error\": f\"File not found at {file_path}\"}\n    \n    # Load the module using importlib\n    try:\n        module_name = \"ingest_data_linux\"\n        spec = importlib.util.spec_from_file_location(module_name, file_path)\n        module = importlib.util.module_from_spec(spec)\n        spec.loader.exec_module(module)\n        \n        # Access the run_etl_pipeline function and config dictionary\n        run_etl_pipeline = module.run_etl_pipeline\n        etl_config = module.config\n        \n        # Store original config to restore later\n        original_config = etl_config.copy()\n        \n        try:\n            # Update config with user values if provided\n            if user_config:\n                for key, value in user_config.items():\n                    if key in etl_config:\n                        etl_config[key] = value\n                    else:\n                        print(f\"Warning: Unknown config key '{key}', adding anyway\")\n                        etl_config[key] = value\n            \n            # Run the ETL pipeline\n            result = run_etl_pipeline()\n            return result\n        \n        finally:\n            # Restore the original config to avoid side effects\n            for key, value in original_config.items():\n                etl_config[key] = value\n    \n    except Exception as e:\n        return {\"error\": f\"Error loading module: {str(e)}\"}\n",
+                "name": "execute_etl",
+                "description": "Executes the ETL pipeline from ingest_data_linux.py with user-provided configuration overrides",
+                "global_imports": [
+                  "sys",
+                  "os",
+                  "importlib.util"
+                ],
+                "has_cancellation_support": true
+              }
+            }
+          ],
+          "model_context": {
+            "provider": "autogen_core.model_context.UnboundedChatCompletionContext",
+            "component_type": "chat_completion_context",
+            "version": 1,
+            "component_version": 1,
+            "description": "An unbounded chat completion context that keeps a view of the all the messages.",
+            "label": "UnboundedChatCompletionContext",
+            "config": {}
+          },
+          "description": "An agent that provides assistance with ability to use tools.",
+          "system_message": "You are a helpful assistant, An agent that provides assistance with data ingestion, eda and schema migration.\n\nyou have many tools such give them configs and use them in logical order on after the other to help user complete the following tasks \n1) find datatypes\n2) misssing values\n3) duplicate rows\n4) cardinality - (strings and int types only) - warns about constants\n5) common stats and plots (box plot, std deviation, median, outliers)\n6) save results as parquet/ delta lake format for incremental learning later\n\nSolve tasks carefully. When done, say NEXT so orchestrator can move on to the next agent.",
+          "model_client_stream": true,
+          "reflect_on_tool_use": true,
+          "tool_call_summary_format": "{result}"
+        }
+      },
+      {
+        "provider": "autogen_agentchat.agents.AssistantAgent",
+        "component_type": "agent",
+        "version": 1,
+        "component_version": 1,
+        "description": "An agent that provides assistance with tool use.",
+        "label": "critic_agent",
+        "config": {
+          "name": "critic_agent",
+          "model_client": {
+            "provider": "autogen_ext.models.openai.OpenAIChatCompletionClient",
+            "component_type": "model",
+            "version": 1,
+            "component_version": 1,
+            "description": "Chat completion client for OpenAI hosted models.",
+            "label": "OpenAIChatCompletionClient",
+            "config": {
+              "model": "gpt-4o-mini",
+              "api_key": "<please-enter-an-openai-key-here>"
+            }
+          },
+          "tools": [],
+          "model_context": {
+            "provider": "autogen_core.model_context.UnboundedChatCompletionContext",
+            "component_type": "chat_completion_context",
+            "version": 1,
+            "component_version": 1,
+            "description": "An unbounded chat completion context that keeps a view of the all the messages.",
+            "label": "UnboundedChatCompletionContext",
+            "config": {}
+          },
+          "description": "an agent that critiques and improves the assistant's output",
+          "system_message": "You are a helpful assistant. Critique the assistant's output and suggest improvements based on use case",
+          "model_client_stream": false,
+          "reflect_on_tool_use": false,
+          "tool_call_summary_format": "{result}"
+        }
+      },
+      {
+        "provider": "autogen_agentchat.agents.UserProxyAgent",
+        "component_type": "agent",
+        "version": 1,
+        "component_version": 1,
+        "description": "An agent that can represent a human user through an input function.",
+        "label": "UserProxyAgent",
+        "config": {
+          "name": "user_proxy",
+          "description": "a human user that should be consulted only when the assistant_agent is unable to verify the information provided by the websurfer_agent"
+        }
+      },
+      {
+        "provider": "autogen_agentchat.agents.AssistantAgent",
+        "component_type": "agent",
+        "version": 1,
+        "component_version": 1,
+        "description": "An agent that provides assistance with ability to use tools for imputation, scaling and feature engineering",
+        "label": "feature_engineering_assistant_agent",
+        "config": {
+          "name": "feature_engineering_assistant_agent",
+          "model_client": {
+            "provider": "autogen_ext.models.openai.OpenAIChatCompletionClient",
+            "component_type": "model",
+            "version": 1,
+            "component_version": 1,
+            "description": "Chat completion client for OpenAI hosted models.",
+            "label": "OpenAIChatCompletionClient",
+            "config": {
+              "model": "gpt-4o-mini",
+              "api_key": "<please-enter-an-openai-key-here>"
+            }
+          },
+          "tools": [
+            {
+              "provider": "autogen_core.tools.FunctionTool",
+              "component_type": "tool",
+              "version": 1,
+              "component_version": 1,
+              "description": "Create custom tools by wrapping standard Python functions.",
+              "label": "FunctionTool",
+              "config": {
+                "source_code": "def calculator(a: float, b: float, operator: str) -> str:\n    try:\n        if operator == \"+\":\n            return str(a + b)\n        elif operator == \"-\":\n            return str(a - b)\n        elif operator == \"*\":\n            return str(a * b)\n        elif operator == \"/\":\n            if b == 0:\n                return \"Error: Division by zero\"\n            return str(a / b)\n        else:\n            return \"Error: Invalid operator. Please use +, -, *, or /\"\n    except Exception as e:\n        return f\"Error: {str(e)}\"\n",
+                "name": "calculator",
+                "description": "A simple calculator that performs basic arithmetic operations",
+                "global_imports": [],
+                "has_cancellation_support": true
+              }
+            },
+            {
+              "provider": "autogen_core.tools.FunctionTool",
+              "component_type": "tool",
+              "version": 1,
+              "component_version": 1,
+              "description": "Executes the feature engineering pipeline from feature_engineering_linux.py with user-provided configuration overrides",
+              "label": "Feature Engineering Pipeline Tool",
+              "config": {
+                "source_code": "import sys\nimport os\nimport importlib.util\n\ndef execute_feature_engineering(user_config: dict = None) -> dict:\n    \"\"\"\n    Execute the feature engineering pipeline with optional user configurations.\n    \n    Args:\n        user_config (dict): User-provided configuration overrides\n        \n    Returns:\n        dict: Results from the feature engineering pipeline execution\n    \"\"\"\n    # Define the exact file path to the module\n    file_path = r\"D:\\College\\databricks_apis\\databricks_api_endpoints\\feature_engineering_linux.py\"\n    \n    # Check if file exists\n    if not os.path.exists(file_path):\n        return {\"error\": f\"File not found at {file_path}\"}\n    \n    # Load the module using importlib\n    try:\n        module_name = \"feature_engineering_linux\"\n        spec = importlib.util.spec_from_file_location(module_name, file_path)\n        module = importlib.util.module_from_spec(spec)\n        spec.loader.exec_module(module)\n        \n        # Access the run_feature_engineering_pipeline function and config dictionary\n        run_feature_engineering_pipeline = module.run_feature_engineering_pipeline\n        feature_config = module.config\n        \n        # Store original config to restore later\n        original_config = feature_config.copy()\n        \n        try:\n            # Update config with user values if provided\n            if user_config:\n                for key, value in user_config.items():\n                    if key in feature_config:\n                        feature_config[key] = value\n                    else:\n                        print(f\"Warning: Unknown config key '{key}', adding anyway\")\n                        feature_config[key] = value\n            \n            # Run the feature engineering pipeline\n            result = run_feature_engineering_pipeline()\n            return result\n        \n        finally:\n            # Restore the original config to avoid side effects\n            for key, value in original_config.items():\n                feature_config[key] = value\n    \n    except Exception as e:\n        import traceback\n        return {\n            \"error\": f\"Error executing feature engineering pipeline: {str(e)}\",\n            \"traceback\": traceback.format_exc(),\n            \"file_path_used\": file_path\n        }\n\n# Default configuration options (these are available for overriding):\n# {\n#     \"input_path\": \"results/ingestion_table_parquet_pandas\",\n#     \"data_quality_report_path\": \"results/ingestion_table_data_quality_report.json\",\n#     \"output_path\": \"results/feature_engineered_data\",\n#     \"target_columns\": [\n#         \"HP_CompE21EnergyIn\", \n#         \"HP_EHeatE21EnergyCH\",\n#         \"HP_EHeatE21EnergyDHW\",\n#         \"HP_EHeatE21EnergyPool\",\n#         \"HP_EHeatE21EnergyTotal\",\n#         \"HP_EnergyE21InCH\",\n#         \"HP_EnergyE21InCool\", \n#         \"HP_EnergyE21InDHW\",\n#         \"HP_EnergyE21InTotal\"\n#     ],\n#     \"primary_target\": \"HP_CompE21EnergyIn\",\n#     \"imputation_method\": \"ffill\",\n#     \"categorical_columns\": [],\n#     \"numerical_columns\": [],\n#     \"auto_detect_categorical\": True,\n#     \"categorical_threshold\": 10,\n#     \"scaling_method\": \"standard\",\n#     \"selection_methods\": [\"correlation\", \"lasso\"],\n#     \"correlation_method\": \"pearson\",\n#     \"correlation_threshold\": 0.1,\n#     \"lasso_alpha\": 0.01,\n#     \"use_pca\": False,\n#     \"pca_components\": 0.95,\n#     \"use_rfe\": False,\n#     \"rfe_n_features\": 10,\n#     \"selection_ratio\": {\n#         \"correlation\": 1.0,\n#         \"lasso\": 0.0,\n#         \"rfe\": 0.0,\n#         \"pca\": 1.0\n#     },\n#     \"batch_size\": 10000,\n#     \"reuse_data_quality_insights\": True\n# }",
+                "name": "execute_feature_engineering",
+                "description": "Executes the feature engineering pipeline from feature_engineering_linux.py with user-provided configuration overrides",
+                "global_imports": [
+                  "sys",
+                  "os",
+                  "importlib.util"
+                ],
+                "has_cancellation_support": true
+              }
+            }
+          ],
+          "model_context": {
+            "provider": "autogen_core.model_context.UnboundedChatCompletionContext",
+            "component_type": "chat_completion_context",
+            "version": 1,
+            "component_version": 1,
+            "description": "An unbounded chat completion context that keeps a view of the all the messages.",
+            "label": "UnboundedChatCompletionContext",
+            "config": {}
+          },
+          "description": "An agent that provides assistance with ability to use tools.",
+          "system_message": "You are a helpful assistant, An agent that provides assistance with imputation, scaling and feature engineering.\n\nyou have many tools such give them configs and use them in logical order on after the other to help user complete the following tasks \n\n1) one hot encode strings and int categorical ones\n2) impute missing values by mean, zeros or ffill\n3) scale by minmax or std scaler\n4) run mutual correlation between the target and features\n5) run recursive features extraction (optional not for big data)\n6) lasso \n7)Incremental PCA (optional but worth it for streaming data applications)\n8) Kendall, spearman, pearson\n6) save results as parquet/ delta lake format for incremental learning later\n\nSolve tasks carefully. When done, say NEXT so orchestrator can move on to the next agent.",
+          "model_client_stream": true,
+          "reflect_on_tool_use": true,
+          "tool_call_summary_format": "{result}"
+        }
+      },
+      {
+        "provider": "autogen_agentchat.agents.AssistantAgent",
+        "component_type": "agent",
+        "version": 1,
+        "component_version": 1,
+        "description": "An agent that provides assistance with ability to use tools to run ml_pipeline.",
+        "label": "ml_training_assistant_agent",
+        "config": {
+          "name": "ml_training_assistant_agent",
+          "model_client": {
+            "provider": "autogen_ext.models.openai.OpenAIChatCompletionClient",
+            "component_type": "model",
+            "version": 1,
+            "component_version": 1,
+            "description": "Chat completion client for OpenAI hosted models.",
+            "label": "OpenAIChatCompletionClient",
+            "config": {
+              "model": "gpt-4o-mini",
+              "api_key": "<please-enter-an-openai-key-here>"
+            }
+          },
+          "tools": [
+            {
+              "provider": "autogen_core.tools.FunctionTool",
+              "component_type": "tool",
+              "version": 1,
+              "component_version": 1,
+              "description": "Create custom tools by wrapping standard Python functions.",
+              "label": "FunctionTool",
+              "config": {
+                "source_code": "def calculator(a: float, b: float, operator: str) -> str:\n    try:\n        if operator == \"+\":\n            return str(a + b)\n        elif operator == \"-\":\n            return str(a - b)\n        elif operator == \"*\":\n            return str(a * b)\n        elif operator == \"/\":\n            if b == 0:\n                return \"Error: Division by zero\"\n            return str(a / b)\n        else:\n            return \"Error: Invalid operator. Please use +, -, *, or /\"\n    except Exception as e:\n        return f\"Error: {str(e)}\"\n",
+                "name": "calculator",
+                "description": "A simple calculator that performs basic arithmetic operations",
+                "global_imports": [],
+                "has_cancellation_support": true
+              }
+            },
+            {
+              "provider": "autogen_core.tools.FunctionTool",
+              "component_type": "tool",
+              "version": 1,
+              "component_version": 1,
+              "description": "Executes the ML training and benchmarking pipeline from ml_training_benchmarking.py with user-provided configuration overrides",
+              "label": "ML Training Pipeline Tool",
+              "config": {
+                "source_code": "import sys\nimport os\nimport importlib.util\n\ndef execute_ml_training(user_config: dict = None) -> dict:\n    \"\"\"\n    Execute the ML training and benchmarking pipeline with optional user configurations.\n    \n    Args:\n        user_config (dict): User-provided configuration overrides\n        \n    Returns:\n        dict: Results from the ML training pipeline execution\n    \"\"\"\n    # Define the exact file path to the module\n    file_path = r\"D:\\College\\databricks_apis\\databricks_api_endpoints\\ml_training_benchmarking.py\"\n    \n    # Check if file exists\n    if not os.path.exists(file_path):\n        return {\"error\": f\"File not found at {file_path}\"}\n    \n    # Load the module using importlib\n    try:\n        module_name = \"ml_training_benchmarking\"\n        spec = importlib.util.spec_from_file_location(module_name, file_path)\n        module = importlib.util.module_from_spec(spec)\n        spec.loader.exec_module(module)\n        \n        # Access the main function and ml_config dictionary\n        main_function = module.main\n        ml_config = module.ml_config\n        \n        # Store original config to restore later\n        original_config = {k: (v.copy() if isinstance(v, dict) else v) for k, v in ml_config.items()}\n        # For nested dicts like 'time_series', ensure its sub-keys are also copied\n        if 'time_series' in original_config and isinstance(original_config['time_series'], dict):\n            original_config['time_series'] = original_config['time_series'].copy()\n        \n        try:\n            # Update config with user values if provided\n            if user_config:\n                for key, value in user_config.items():\n                    if key in ml_config:\n                        if isinstance(ml_config[key], dict) and isinstance(value, dict):\n                            # Update nested dictionaries (e.g., time_series)\n                            for sub_key, sub_value in value.items():\n                                if sub_key in ml_config[key]:\n                                    ml_config[key][sub_key] = sub_value\n                                else:\n                                    print(f\"Warning: Unknown config sub-key '{sub_key}' in '{key}', adding anyway\")\n                                    ml_config[key][sub_key] = sub_value\n                        else:\n                            ml_config[key] = value\n                    else:\n                        print(f\"Warning: Unknown config key '{key}', adding anyway\")\n                        ml_config[key] = value\n            \n            # Run the ML training pipeline\n            result = main_function()\n            return result\n        \n        finally:\n            # Restore the original config to avoid side effects\n            for key, value in original_config.items():\n                ml_config[key] = value\n    \n    except Exception as e:\n        import traceback\n        return {\n            \"error\": f\"Error executing ML training pipeline: {str(e)}\",\n            \"traceback\": traceback.format_exc(),\n            \"file_path_used\": file_path\n        }\n\n# Default configuration options (these are available for overriding):\n# {\n#     \"use_case\": \"time_series\",  # Default case: time_series (alternatives: regression, classification, clustering, anomaly)\n#     \"gpu_enabled\": False,      # Use GPU acceleration if available\n#     \"k_folds\": 5,              # Number of cross-validation folds\n#     \"test_size\": 0.2,          # Proportion of data to use for testing\n#     \"logging\": \"default\",      # Logging level\n#     \"top_n_models\": 5,         # Number of top models to save\n#     \"save_quantization_data\": True,  # Save test data for quantization\n#     \"quantization_data_size\": 0.1,   # Portion of data to save for quantization\n#     \"use_pycaret\": False,      # Whether to use PyCaret for model training\n#     \"target_columns\": [        # Target columns to train models for\n#         \"HP_CompE21EnergyIn\", \n#         \"HP_EHeatE21EnergyCH\",\n#         \"HP_EHeatE21EnergyDHW\",\n#         \"HP_EHeatE21EnergyPool\",\n#         \"HP_EHeatE21EnergyTotal\",\n#         \"HP_EnergyE21InCH\",\n#         \"HP_EnergyE21InCool\", \n#         \"HP_EnergyE21InDHW\",\n#         \"HP_EnergyE21InTotal\"\n#     ],\n#     \"primary_target\": \"HP_CompE21EnergyIn\",  # Primary target for reporting\n#     \"output_dir\": \"results/ml_models\",       # Output directory\n#     \"excluded_models\": [],     # Models to exclude from training\n#     \n#     # Standard ML parameters\n#     \"normalize\": True,         # Normalize features\n#     \"fix_imbalance\": False,    # Fix class imbalance (for classification)\n#     \"feature_selection\": False, # Additional feature selection\n#     \"remove_multicollinearity\": True, # Remove multicollinear features\n#     \"pca\": False,              # Apply PCA\n#     \"ignore_low_variance\": True, # Ignore low variance features\n#     \"polynomial_features\": False, # Create polynomial features\n#     \"feature_interaction\": False, # Create feature interactions\n#     \"save_formats\": [\"pkl\", \"onnx\", \"tflite\", \"keras\"], # Model formats to save\n#     \n#     # Time series specific parameters\n#     \"time_series\": {\n#         \"fh\": 24,               # Forecast horizon (number of periods to predict)\n#         \"seasonal_period\": \"D\",  # Seasonal period: 'D'=daily, 'W'=weekly, 'M'=monthly, 'Q'=quarterly, 'Y'=yearly\n#         \"seasonality\": True,     # Whether to model seasonality\n#         \"exogenous_features\": [], # List of exogenous features to use\n#         \"sort_by\": None,         # Column to sort by (e.g., date column)\n#         \"seasonal_periods\": [7, 30, 365],  # Periods to consider for seasonality\n#         \"transformations\": [\"detrend\", \"difference\", \"log\"],  # Data transformations to try\n#         \"decomposition\": [\"additive\", \"multiplicative\"],  # Decomposition methods to try\n#         \"cross_validation\": True, # Whether to use cross-validation\n#         \"fold\": 3,              # Number of folds for time series cross-validation\n#         \n#         # Neural network specific parameters\n#         \"nn_models\": True,      # Whether to include neural network models\n#         \"lstm_layers\": [1, 2],  # Number of LSTM layers to try\n#         \"lstm_units\": [32, 64], # Number of LSTM units per layer to try\n#         \"epochs\": 50,           # Maximum number of training epochs\n#         \"batch_size\": 32,       # Batch size for training\n#         \"lookback\": 30,         # Number of past time steps to use as input\n#         \"dropout_rate\": 0.2,    # Dropout rate for regularization\n#         \"early_stopping\": True, # Whether to use early stopping\n#         \"max_lag\": 7,           # Maximum lag for feature creation\n#         \"rolling_windows\": [7, 14, 30]  # Windows for rolling statistics\n#     }\n# }",
+                "name": "execute_ml_training",
+                "description": "Executes the ML training and benchmarking pipeline from ml_training_benchmarking.py with user-provided configuration overrides",
+                "global_imports": [
+                  "sys",
+                  "os",
+                  "importlib.util"
+                ],
+                "has_cancellation_support": true
+              }
+            }
+          ],
+          "model_context": {
+            "provider": "autogen_core.model_context.UnboundedChatCompletionContext",
+            "component_type": "chat_completion_context",
+            "version": 1,
+            "component_version": 1,
+            "description": "An unbounded chat completion context that keeps a view of the all the messages.",
+            "label": "UnboundedChatCompletionContext",
+            "config": {}
+          },
+          "description": "An agent that provides assistance with ability to use tools.",
+          "system_message": "You are a helpful assistant, An agent that provides assistance with imputation, scaling and feature engineering.\n\nyou have many tools such give them configs and use them in logical order on after the other to help user complete the following tasks \n\n1) configure pycaret\n2) save results\n3) save pipelines as .pkl files\n4) deserialize and store .pkl file as onnx format \n\nSolve tasks carefully. When done, say NEXT so orchestrator can move on to the next agent.\n",
+          "model_client_stream": true,
+          "reflect_on_tool_use": true,
+          "tool_call_summary_format": "{result}"
+        }
+      }
+    ],
+    "model_client": {
+      "provider": "autogen_ext.models.openai.OpenAIChatCompletionClient",
+      "component_type": "model",
+      "version": 1,
+      "component_version": 1,
+      "description": "Chat completion client for OpenAI hosted models.",
+      "label": "OpenAIChatCompletionClient",
+      "config": {
+        "model": "gpt-4o-mini",
+        "api_key": "<please-enter-an-openai-key-here>"
+      }
+    },
+    "termination_condition": {
+      "provider": "autogen_agentchat.base.OrTerminationCondition",
+      "component_type": "termination",
+      "version": 1,
+      "component_version": 1,
+      "label": "OrTerminationCondition",
+      "config": {
+        "conditions": [
+          {
+            "provider": "autogen_agentchat.conditions.TextMentionTermination",
+            "component_type": "termination",
+            "version": 1,
+            "component_version": 1,
+            "description": "Terminate the conversation if a specific text is mentioned.",
+            "label": "TextMentionTermination",
+            "config": {
+              "text": "TERMINATE"
+            }
+          },
+          {
+            "provider": "autogen_agentchat.conditions.MaxMessageTermination",
+            "component_type": "termination",
+            "version": 1,
+            "component_version": 1,
+            "description": "Terminate the conversation after a maximum number of messages have been exchanged.",
+            "label": "MaxMessageTermination",
+            "config": {
+              "max_messages": 10,
+              "include_agent_event": false
+            }
+          }
+        ]
+      }
+    },
+    "selector_prompt": "You are in a ml pipeline which has agentic support to help user give configs. The following roles are available:\n{roles}.\nRead the following conversation. Then select the next role from {participants} to play. Only return the role.\n\n{history}\n\nRead the above conversation. Then select the next role from {participants} to play. Only return the role.\n\nknow that each agent has tools that can help you achieve the business use case given by userproxy agent, feel free to ask userproxy agent to help give you configs when in doubt about the use case but you are to help him automate the task of training ml models from data using these agents \n\nlook at output and instruct  various agents to use their tools to move forward in the pipeline using configs from use or their own\n\nsay TERMINATE to end session",
+    "allow_repeated_speaker": false,
+    "max_selector_attempts": 3
+  }
+}

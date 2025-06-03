@@ -1,0 +1,152 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# C extensions
+*.so
+
+# Distribution / packaging
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# PyInstaller
+*.manifest
+*.spec
+
+# Installer logs
+pip-log.txt
+pip-delete-this-directory.txt
+
+# Unit test / coverage reports
+htmlcov/
+.tox/
+.nox/
+.coverage
+.coverage.*
+.cache
+nosetests.xml
+coverage.xml
+*.cover
+*.py,cover
+.hypothesis/
+.pytest_cache/
+
+# Jupyter Notebook
+.ipynb_checkpoints
+
+# IPython
+profile_default/
+ipython_config.py
+
+# Environments
+.env
+.venv
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
+wsl_venv/
+
+# pyenv
+.python-version
+
+# Spyder project settings
+.spyderproject
+.spyproject
+
+# Rope project settings
+.ropeproject
+
+# mypy
+.mypy_cache/
+.dmypy.json
+dmypy.json
+
+# VS Code
+.vscode/
+*.code-workspace
+
+# PyCharm
+.idea/
+*.iml
+*.iws
+*.ipr
+
+# Databricks
+.dbc
+*.dbc
+*.dbml
+*.dbfs
+.databricks/
+
+# MacOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Windows
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+*.lnk
+
+# Logs and databases
+*.log
+*.sql
+*.sqlite
+
+# Local config and secrets
+*.local
+*.secret
+config.ini
+.secrets
+
+# Raw data folder - large datasets shouldn't be in git
+raw_data/
+data/
+datasets/
+
+# Model files (often large)
+*.pkl
+*.h5
+*.onnx
+*.tflite
+*.keras
+*.pt
+*.pth
+
+# Output directories
+results/
+outputs/
+models/
+
+# Allow explicitly specified model or data files
+!results/README.md
+!models/README.md
+
+# GitHub specific
+.github/workflows/*.yml
+
+# Specific ML libraries
+wandb/
+mlruns/
+tensorboard/
+lightning_logs/

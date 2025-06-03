@@ -1,0 +1,348 @@
+{
+  "provider": "autogen_agentchat.teams.SelectorGroupChat",
+  "component_type": "team",
+  "version": 1,
+  "component_version": 1,
+  "description": "A team with  agents, each with tools that can help you achieve the business use case given by userproxy agent, feel free to ask userproxy agent to help give you configs when in doubt about the use case but you are to help him automate the task of training ml models from data using these agents \n\nlook at output and instruct  various agents to use their tools to move forward in the pipeline\n\n ",
+  "label": "Cloud2stm_agentic_team",
+  "config": {
+    "participants": [
+      {
+        "provider": "autogen_agentchat.agents.AssistantAgent",
+        "component_type": "agent",
+        "version": 1,
+        "component_version": 1,
+        "description": "An agent that provides assistance with data ingestion, eda and schema migration.",
+        "label": "data_ingestion_assistant_agent",
+        "config": {
+          "name": "data_ingestion_assistant_agent",
+          "model_client": {
+            "provider": "autogen_ext.models.openai.OpenAIChatCompletionClient",
+            "component_type": "model",
+            "version": 1,
+            "component_version": 1,
+            "description": "Chat completion client for OpenAI hosted models.",
+            "label": "OpenAIChatCompletionClient",
+            "config": {
+              "model": "gpt-4o-mini",
+              "api_key": "<please-enter-an-openai-key-here>"
+            }
+          },
+          "tools": [
+            {
+              "provider": "autogen_core.tools.FunctionTool",
+              "component_type": "tool",
+              "version": 1,
+              "component_version": 1,
+              "description": "Create custom tools by wrapping standard Python functions.",
+              "label": "FunctionTool",
+              "config": {
+                "source_code": "def calculator(a: float, b: float, operator: str) -> str:\n    try:\n        if operator == \"+\":\n            return str(a + b)\n        elif operator == \"-\":\n            return str(a - b)\n        elif operator == \"*\":\n            return str(a * b)\n        elif operator == \"/\":\n            if b == 0:\n                return \"Error: Division by zero\"\n            return str(a / b)\n        else:\n            return \"Error: Invalid operator. Please use +, -, *, or /\"\n    except Exception as e:\n        return f\"Error: {str(e)}\"\n",
+                "name": "calculator",
+                "description": "A simple calculator that performs basic arithmetic operations",
+                "global_imports": [],
+                "has_cancellation_support": false
+              }
+            },
+            {
+              "provider": "autogen_ext.tools.code_execution.PythonCodeExecutionTool",
+              "component_type": "tool",
+              "version": 1,
+              "component_version": 1,
+              "description": "A tool that executes Python code in a local environment.",
+              "label": "Python Code Execution Tool",
+              "config": {
+                "executor": {
+                  "provider": "autogen_ext.code_executors.local.LocalCommandLineCodeExecutor",
+                  "component_type": "code_executor",
+                  "version": 1,
+                  "component_version": 1,
+                  "description": "A code executor class that executes code through a local command line\n    environment.",
+                  "label": "LocalCommandLineCodeExecutor",
+                  "config": {
+                    "timeout": 360,
+                    "work_dir": ".coding",
+                    "functions_module": "functions"
+                  }
+                },
+                "description": "Execute Python code blocks.",
+                "name": "Python_Code_Execution_Tool"
+              }
+            }
+          ],
+          "model_context": {
+            "provider": "autogen_core.model_context.UnboundedChatCompletionContext",
+            "component_type": "chat_completion_context",
+            "version": 1,
+            "component_version": 1,
+            "description": "An unbounded chat completion context that keeps a view of the all the messages.",
+            "label": "UnboundedChatCompletionContext",
+            "config": {}
+          },
+          "description": "An agent that provides assistance with ability to use tools.",
+          "system_message": "You are a helpful assistant, An agent that provides assistance with data ingestion, eda and schema migration.\n\nyou have many tools such give them configs and use them in logical order on after the other to help user complete the following tasks \n1) find datatypes\n2) misssing values\n3) duplicate rows\n4) cardinality - (strings and int types only) - warns about constants\n5) common stats and plots (box plot, std deviation, median, outliers)\n6) save results as parquet/ delta lake format for incremental learning later\n\nSolve tasks carefully. When done, say NEXT so orchestrator can move on to the next agent.",
+          "model_client_stream": true,
+          "reflect_on_tool_use": true,
+          "tool_call_summary_format": "{result}"
+        }
+      },
+      {
+        "provider": "autogen_agentchat.agents.AssistantAgent",
+        "component_type": "agent",
+        "version": 1,
+        "component_version": 1,
+        "description": "An agent that provides assistance with tool use.",
+        "label": "critic_agent",
+        "config": {
+          "name": "critic_agent",
+          "model_client": {
+            "provider": "autogen_ext.models.openai.OpenAIChatCompletionClient",
+            "component_type": "model",
+            "version": 1,
+            "component_version": 1,
+            "description": "Chat completion client for OpenAI hosted models.",
+            "label": "OpenAIChatCompletionClient",
+            "config": {
+              "model": "gpt-4o-mini",
+              "api_key": "<please-enter-an-openai-key-here>"
+            }
+          },
+          "tools": [],
+          "model_context": {
+            "provider": "autogen_core.model_context.UnboundedChatCompletionContext",
+            "component_type": "chat_completion_context",
+            "version": 1,
+            "component_version": 1,
+            "description": "An unbounded chat completion context that keeps a view of the all the messages.",
+            "label": "UnboundedChatCompletionContext",
+            "config": {}
+          },
+          "description": "an agent that critiques and improves the assistant's output",
+          "system_message": "You are a helpful assistant. Critique the assistant's output and suggest improvements based on use case",
+          "model_client_stream": false,
+          "reflect_on_tool_use": false,
+          "tool_call_summary_format": "{result}"
+        }
+      },
+      {
+        "provider": "autogen_agentchat.agents.UserProxyAgent",
+        "component_type": "agent",
+        "version": 1,
+        "component_version": 1,
+        "description": "An agent that can represent a human user through an input function.",
+        "label": "UserProxyAgent",
+        "config": {
+          "name": "user_proxy",
+          "description": "a human user that should be consulted only when the assistant_agent is unable to verify the information provided by the websurfer_agent"
+        }
+      },
+      {
+        "provider": "autogen_agentchat.agents.AssistantAgent",
+        "component_type": "agent",
+        "version": 1,
+        "component_version": 1,
+        "description": "An agent that provides assistance with ability to use tools for imputation, scaling and feature engineering",
+        "label": "feature_engineering_assistant_agent",
+        "config": {
+          "name": "feature_engineering_assistant_agent",
+          "model_client": {
+            "provider": "autogen_ext.models.openai.OpenAIChatCompletionClient",
+            "component_type": "model",
+            "version": 1,
+            "component_version": 1,
+            "description": "Chat completion client for OpenAI hosted models.",
+            "label": "OpenAIChatCompletionClient",
+            "config": {
+              "model": "gpt-4o-mini",
+              "api_key": "<please-enter-an-openai-key-here>"
+            }
+          },
+          "tools": [
+            {
+              "provider": "autogen_core.tools.FunctionTool",
+              "component_type": "tool",
+              "version": 1,
+              "component_version": 1,
+              "description": "Create custom tools by wrapping standard Python functions.",
+              "label": "FunctionTool",
+              "config": {
+                "source_code": "def calculator(a: float, b: float, operator: str) -> str:\n    try:\n        if operator == \"+\":\n            return str(a + b)\n        elif operator == \"-\":\n            return str(a - b)\n        elif operator == \"*\":\n            return str(a * b)\n        elif operator == \"/\":\n            if b == 0:\n                return \"Error: Division by zero\"\n            return str(a / b)\n        else:\n            return \"Error: Invalid operator. Please use +, -, *, or /\"\n    except Exception as e:\n        return f\"Error: {str(e)}\"\n",
+                "name": "calculator",
+                "description": "A simple calculator that performs basic arithmetic operations",
+                "global_imports": [],
+                "has_cancellation_support": false
+              }
+            },
+            {
+              "provider": "autogen_ext.tools.code_execution.PythonCodeExecutionTool",
+              "component_type": "tool",
+              "version": 1,
+              "component_version": 1,
+              "description": "A tool that executes Python code in a local environment.",
+              "label": "Python Code Execution Tool",
+              "config": {
+                "executor": {
+                  "provider": "autogen_ext.code_executors.local.LocalCommandLineCodeExecutor",
+                  "component_type": "code_executor",
+                  "version": 1,
+                  "component_version": 1,
+                  "description": "A code executor class that executes code through a local command line\n    environment.",
+                  "label": "LocalCommandLineCodeExecutor",
+                  "config": {
+                    "timeout": 360,
+                    "work_dir": ".coding",
+                    "functions_module": "functions"
+                  }
+                },
+                "description": "Execute Python code blocks.",
+                "name": "Python_Code_Execution_Tool"
+              }
+            }
+          ],
+          "model_context": {
+            "provider": "autogen_core.model_context.UnboundedChatCompletionContext",
+            "component_type": "chat_completion_context",
+            "version": 1,
+            "component_version": 1,
+            "description": "An unbounded chat completion context that keeps a view of the all the messages.",
+            "label": "UnboundedChatCompletionContext",
+            "config": {}
+          },
+          "description": "An agent that provides assistance with ability to use tools.",
+          "system_message": "You are a helpful assistant, An agent that provides assistance with imputation, scaling and feature engineering.\n\nyou have many tools such give them configs and use them in logical order on after the other to help user complete the following tasks \n\n1) one hot encode strings and int categorical ones\n2) impute missing values by mean, zeros or ffill\n3) scale by minmax or std scaler\n4) run mutual correlation between the target and features\n5) run recursive features extraction (optional not for big data)\n6) lasso \n7)Incremental PCA (optional but worth it for streaming data applications)\n8) Kendall, spearman, pearson\n6) save results as parquet/ delta lake format for incremental learning later\n\nSolve tasks carefully. When done, say NEXT so orchestrator can move on to the next agent.",
+          "model_client_stream": true,
+          "reflect_on_tool_use": true,
+          "tool_call_summary_format": "{result}"
+        }
+      },
+      {
+        "provider": "autogen_agentchat.agents.AssistantAgent",
+        "component_type": "agent",
+        "version": 1,
+        "component_version": 1,
+        "description": "An agent that provides assistance with ability to use tools to run ml_pipeline.",
+        "label": "ml_training_assistant_agent",
+        "config": {
+          "name": "ml_training_assistant_agent",
+          "model_client": {
+            "provider": "autogen_ext.models.openai.OpenAIChatCompletionClient",
+            "component_type": "model",
+            "version": 1,
+            "component_version": 1,
+            "description": "Chat completion client for OpenAI hosted models.",
+            "label": "OpenAIChatCompletionClient",
+            "config": {
+              "model": "gpt-4o-mini",
+              "api_key": "<please-enter-an-openai-key-here>"
+            }
+          },
+          "tools": [
+            {
+              "provider": "autogen_core.tools.FunctionTool",
+              "component_type": "tool",
+              "version": 1,
+              "component_version": 1,
+              "description": "Create custom tools by wrapping standard Python functions.",
+              "label": "FunctionTool",
+              "config": {
+                "source_code": "def calculator(a: float, b: float, operator: str) -> str:\n    try:\n        if operator == \"+\":\n            return str(a + b)\n        elif operator == \"-\":\n            return str(a - b)\n        elif operator == \"*\":\n            return str(a * b)\n        elif operator == \"/\":\n            if b == 0:\n                return \"Error: Division by zero\"\n            return str(a / b)\n        else:\n            return \"Error: Invalid operator. Please use +, -, *, or /\"\n    except Exception as e:\n        return f\"Error: {str(e)}\"\n",
+                "name": "calculator",
+                "description": "A simple calculator that performs basic arithmetic operations",
+                "global_imports": [],
+                "has_cancellation_support": false
+              }
+            },
+            {
+              "provider": "autogen_ext.tools.code_execution.PythonCodeExecutionTool",
+              "component_type": "tool",
+              "version": 1,
+              "component_version": 1,
+              "description": "A tool that executes Python code in a local environment.",
+              "label": "Python Code Execution Tool",
+              "config": {
+                "executor": {
+                  "provider": "autogen_ext.code_executors.local.LocalCommandLineCodeExecutor",
+                  "component_type": "code_executor",
+                  "version": 1,
+                  "component_version": 1,
+                  "description": "A code executor class that executes code through a local command line\n    environment.",
+                  "label": "LocalCommandLineCodeExecutor",
+                  "config": {
+                    "timeout": 360,
+                    "work_dir": ".coding",
+                    "functions_module": "functions"
+                  }
+                },
+                "description": "Execute Python code blocks.",
+                "name": "Python_Code_Execution_Tool"
+              }
+            }
+          ],
+          "model_context": {
+            "provider": "autogen_core.model_context.UnboundedChatCompletionContext",
+            "component_type": "chat_completion_context",
+            "version": 1,
+            "component_version": 1,
+            "description": "An unbounded chat completion context that keeps a view of the all the messages.",
+            "label": "UnboundedChatCompletionContext",
+            "config": {}
+          },
+          "description": "An agent that provides assistance with ability to use tools.",
+          "system_message": "You are a helpful assistant, An agent that provides assistance with imputation, scaling and feature engineering.\n\nyou have many tools such give them configs and use them in logical order on after the other to help user complete the following tasks \n\n1) configure pycaret\n2) save results\n3) save pipelines as .pkl files\n4) deserialize and store .pkl file as onnx format \n\nSolve tasks carefully. When done, say NEXT so orchestrator can move on to the next agent.\n",
+          "model_client_stream": true,
+          "reflect_on_tool_use": true,
+          "tool_call_summary_format": "{result}"
+        }
+      }
+    ],
+    "model_client": {
+      "provider": "autogen_ext.models.openai.OpenAIChatCompletionClient",
+      "component_type": "model",
+      "version": 1,
+      "component_version": 1,
+      "description": "Chat completion client for OpenAI hosted models.",
+      "label": "OpenAIChatCompletionClient",
+      "config": {
+        "model": "gpt-4o-mini",
+        "api_key": "<please-enter-an-openai-key-here>"
+      }
+    },
+    "termination_condition": {
+      "provider": "autogen_agentchat.base.OrTerminationCondition",
+      "component_type": "termination",
+      "version": 1,
+      "component_version": 1,
+      "label": "OrTerminationCondition",
+      "config": {
+        "conditions": [
+          {
+            "provider": "autogen_agentchat.conditions.TextMentionTermination",
+            "component_type": "termination",
+            "version": 1,
+            "component_version": 1,
+            "description": "Terminate the conversation if a specific text is mentioned.",
+            "label": "TextMentionTermination",
+            "config": {
+              "text": "TERMINATE"
+            }
+          },
+          {
+            "provider": "autogen_agentchat.conditions.MaxMessageTermination",
+            "component_type": "termination",
+            "version": 1,
+            "component_version": 1,
+            "description": "Terminate the conversation after a maximum number of messages have been exchanged.",
+            "label": "MaxMessageTermination",
+            "config": {
+              "max_messages": 10,
+              "include_agent_event": false
+            }
+          }
+        ]
+      }
+    },
+    "selector_prompt": "You are in a ml pipeline which has agentic support to help user give configs. The following roles are available:\n{roles}.\nRead the following conversation. Then select the next role from {participants} to play. Only return the role.\n\n{history}\n\nRead the above conversation. Then select the next role from {participants} to play. Only return the role.\n\nknow that each agent has tools that can help you achieve the business use case given by userproxy agent, feel free to ask userproxy agent to help give you configs when in doubt about the use case but you are to help him automate the task of training ml models from data using these agents \n\nlook at output and instruct  various agents to use their tools to move forward in the pipeline using configs from use or their own\n\nsay TERMINATE to end session",
+    "allow_repeated_speaker": false,
+    "max_selector_attempts": 3
+  }
+}
